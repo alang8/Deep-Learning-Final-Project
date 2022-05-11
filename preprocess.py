@@ -1,7 +1,5 @@
 from multiprocessing import Condition
-from pprint import pprint
 import pandas as pd
-from collections import Counter
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -15,12 +13,13 @@ def only_alpha(text):
     alpha = "".join([i for i in text if (i.isalpha() and i.isascii()) or i == ' '])
     return alpha.lower()
 
+
 def get_data():
     webmd = pd.read_csv("webmd.csv") #362806 rows
 
     reviews = webmd["Reviews"].to_list()
 
-    # Average sentence is 75-100 characters, filters out reviews that are too short
+    # average sentence is 75-100 characters, filters out reviews that are too short
     review_list = []
 
     for review in reviews:
@@ -35,7 +34,7 @@ def get_data():
     # filters webmd so there's only values with review_list in it
     webmd = webmd[webmd.Reviews.isin(review_list)]
 
-    # Adding Ease of Use, Effectiveness, Satisfaction together
+    # adding ease of use, effectiveness, satisfaction together
     scores =  np.array(webmd['EaseofUse'].to_list()) + np.array(webmd['Effectiveness'].to_list()) + np.array(webmd['Satisfaction'].to_list())
 
     # classifying the scores to negative 0, neutral 1, and positive 2
@@ -55,9 +54,9 @@ def get_data():
     reviews = list(map(only_alpha, reviews))
 
     ### This is just to see the reviews and for LIME ###
-    # with open("reviews.txt", "w") as f:
+    # with open("binary_reviews.txt", "w") as f:
     #     for review, s, sentiment  in zip(reviews, scores, score):
-    #         f.write(review + '\n' + '\n')
+    #         f.write(review + '\n') #+ '\n')
     #         f.write("Score is " + s.astype(str) + '\n')
 
     #         if s < 7: 
@@ -67,15 +66,15 @@ def get_data():
     #         else:
     #             sent = "Neutral"
 
-    #         if sentiment == 1:
-    #             sent2 = "Positive"
-    #         else:
-    #             sent2 = "Negative"
+            # if sentiment == 1:
+            #     sent2 = "Positive"
+            # else:
+            #     sent2 = "Negative"
 
-    #         f.write("Sentiment for Multi is " + sent + '\n')
-    #         f.write("Sentiment for Binary is " + sent2 + '\n' + '\n')
+            # #f.write("Sentiment for Multi is " + sent + '\n')
+            # f.write(sent2 + '\n')
 
-    tokenizer = Tokenizer(num_words = 10000, oov_token="oov")
+    tokenizer = Tokenizer(num_words = 20000, oov_token="oov")
     tokenizer.fit_on_texts(reviews)
 
     encoded_docs = tokenizer.texts_to_sequences(reviews)
@@ -83,6 +82,7 @@ def get_data():
     padded_sequence = pad_sequences(encoded_docs, maxlen=200)
 
     return (padded_sequence, score, tokenizer)
+
 
 def main():
     get_data()
