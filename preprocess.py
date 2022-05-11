@@ -1,46 +1,22 @@
-import csv
 from multiprocessing import Condition
 from pprint import pprint
 import pandas as pd
 from collections import Counter
 import numpy as np
-import functools
+import tensorflow as tf
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import re
 
-initial_examples = 20000
-train_num = 15000
+# this file does binary classification
 
 def only_alpha(text):
     "Makes it so that the string entered only returns ascii, alphabetically characters or spaces"
     alpha = "".join([i for i in text if (i.isalpha() and i.isascii()) or i == ' '])
-    return alpha.upper()
-
-def go_to_100(l):
-    '''Makes it so that the list will always have a length of 100. If it's too large it'll be truncated.
-    If it's too short then it will keep adding PADDING to the list until 100.'''
-
-    if len(l) > 100:
-        l = l[:100]
-    else:
-        l += ['PADDING'] * (100 - len(l))
-    return l
-
-def remove_empty(l):
-    '''Removes  '' from the list. '''
-    return list(filter(lambda x: x != '', l))
+    return alpha.lower()
 
 def get_data():
     webmd = pd.read_csv("webmd.csv") #362806 rows
-
-    # Format of webmd is Age, Condition, Date, Drug, DrugId, Ease of Use, Effectiveness, Satisfaction, Sex, Side Effects, Useful Count
-    # Want Age, Condition, DrugId,  Ease of Use, Effectiveness, Satisfaction, Sex, Useful Count 
-
-    # drug = webmd["Drug"]
-    # relevant_drugs = Counter(drug.tolist()).most_common(50)
-
-    # relevant_drugs = list(map(lambda x: x[0], relevant_drugs)) # extracts the name of the 50 most common drugs reviewed
-
-    # Relevant drugs may later be converted to ID form to do stuff 
-    # webmd = webmd[webmd.Drug.isin(relevant_drugs)] #106389 examples
 
     reviews = webmd["Reviews"].to_list()
 
@@ -54,72 +30,62 @@ def get_data():
     # print(len(review_list)) #271509 examples left
 
     # makes it so there's only initial_example number of reviews left
-    review_list = review_list[:initial_examples]
+    review_list = review_list
 
     # filters webmd so there's only values with review_list in it
     webmd = webmd[webmd.Reviews.isin(review_list)]
 
     # Adding Ease of Use, Effectiveness, Satisfaction together
-    score =  np.array(webmd['EaseofUse'].to_list()) + np.array(webmd['Effectiveness'].to_list()) + np.array(webmd['Satisfaction'].to_list())
+    scores =  np.array(webmd['EaseofUse'].to_list()) + np.array(webmd['Effectiveness'].to_list()) + np.array(webmd['Satisfaction'].to_list())
 
     # classifying the scores to negative 0, neutral 1, and positive 2
-    score = np.where(score < 7, 0, score) #score is 0 if less than 7 (negative)
-    score = np.where(score > 11, 2, score) # score is 2 if greater than 11 (positive)
-    score = np.where(score > 6, 1, score) # if score is greater than 6 and less than 12 (neutral )
+    # score = np.where(score < 7, 0, score) #score is 0 if less than 7 (negative)
+    # score = np.where(score > 11, 2, score) # score is 2 if greater than 11 (positive)
+    # score = np.where(score > 6, 1, score) # if score is greater than 6 and less than 12 (neutral )
+
+    score = np.where(scores < 9, 0, 1) #score is 0 if less than 9 (negative), 1 if greater than equal to 9, (positive)
 
     # just to make sure that reviews are in the same order as the scores
     reviews = webmd['Reviews'].to_list()
 
+    reviews = list(map(lambda x: re.sub(r"\s+", " ", x), reviews)) # replaces tabs/newlines with spaces
+    reviews = list(map(lambda x: re.sub(' +', ' ', x), reviews)) # removes repeating spaces
+
     # makes it so it's only alphabetical characters
     reviews = list(map(only_alpha, reviews))
 
-    # reviews = reviews[:10]
+    ### This is just to see the reviews and for LIME ###
+    # with open("reviews.txt", "w") as f:
+    #     for review, s, sentiment  in zip(reviews, scores, score):
+    #         f.write(review + '\n' + '\n')
+    #         f.write("Score is " + s.astype(str) + '\n')
 
-    reviews = [x.split(" ") for x in reviews]
+    #         if s < 7: 
+    #             sent = "Negative"
+    #         elif s > 11:
+    #             sent = "Positive"
+    #         else:
+    #             sent = "Neutral"
 
-    reviews = list(map(remove_empty, reviews))
+    #         if sentiment == 1:
+    #             sent2 = "Positive"
+    #         else:
+    #             sent2 = "Negative"
 
-    reviews = list(map(go_to_100, reviews))
+    #         f.write("Sentiment for Multi is " + sent + '\n')
+    #         f.write("Sentiment for Binary is " + sent2 + '\n' + '\n')
 
-    # flattens the list of list to a list
-    words = functools.reduce(lambda x,y: x + y, reviews)
+    tokenizer = Tokenizer(num_words = 10000, oov_token="oov")
+    tokenizer.fit_on_texts(reviews)
 
-    # dictionary that stores the translation of word to id
-    word_id = {} 
+    encoded_docs = tokenizer.texts_to_sequences(reviews)
 
-    count = 0
+    padded_sequence = pad_sequences(encoded_docs, maxlen=200)
 
-    for word in words:
-        word_id[word] = count
-        count += 1
+    return (padded_sequence, score, tokenizer)
 
-    corpus_id = np.empty((0, 100), int)
+def main():
+    get_data()
 
-    for review in reviews:
-        for i, w in enumerate(review):
-            review[i] = word_id[w]
-        corpus_id = np.append(corpus_id, np.array([review]), axis=0)
-            
-    pad_id = word_id['PADDING']
-
-    train_inputs = corpus_id[:train_num]
-    train_labels = score[:train_num]
-
-    test_inputs = corpus_id[train_num:]
-    test_labels = score[train_num:]
-
-    # print(test_inputs.shape)
-    # print(train_inputs.shape) #(10000, 100)
-    # print(train_labels.shape) #(10000, 100)
-    # print(test_inputs.shape) (5204, 100)
-    # print(test_labels.shape) (5204,)
-    # print(pad_id)
-    # print(word_id)
-
-    return (train_inputs, train_labels, test_inputs, test_labels, pad_id, word_id)
-
-# def main():
-# 	get_data()
-
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
