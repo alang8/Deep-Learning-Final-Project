@@ -45,7 +45,7 @@ def main():
         model = create_model()
 
         model.compile(loss='binary_crossentropy',optimizer='adam', metrics=['accuracy'])
-        print(model.summary())
+        model.summary()
 
         h = model.fit(all_inputs, all_labels, validation_split=0.2, epochs=1, batch_size=1024) # 
         # loss: 0.4719 - accuracy: 0.7735 - val_loss: 0.4315 - val_accuracy: 0.8003
