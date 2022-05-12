@@ -9,4 +9,5 @@ pip install lime <br />
 pip install ipython <br /> 
 
 
-You also have to unzip “webmd.csv.zip” prior to running. This is because the actual file “webmd.csv” is too large for Github. 
+You also have to unzip “webmd.csv.zip” prior to running. <br /> 
+This is because the actual file “webmd.csv” is too large for Github. 
