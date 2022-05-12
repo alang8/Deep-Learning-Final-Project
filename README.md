@@ -1,5 +1,5 @@
 # Deep-Learning-Final-Project
-Final Project for CS1470
+Final Project for CS1470 (Brown University, Spring 2022)
 
 Necessary Setup:
 In addition to the regular CS1470 virtual environment, you will need these packages:
